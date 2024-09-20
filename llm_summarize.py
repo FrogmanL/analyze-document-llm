@@ -4,7 +4,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
+from textwrap import fill
 import time
+
 
 # Set your OpenAI API key (replace 'your-api-key' with your actual API key)
 # os.environ["OPENAI_API_KEY"] = "your-api-key"
@@ -20,21 +22,18 @@ def load_pdf(file_path):
     documents = loader.load()
     
     # Split documents into manageable chunks for processing
-    #docs = split_doc_by_char(documents, 8000, 100)
-    docs = split_doc_by_page(documents, 21)
-
+    docs = split_doc_by_char(documents, 8000, 100, 21)
+    
     end = time.time()
     print(f"Loaded PDF in {(end-start):.2f} seconds")
 
     return docs
 
-def split_doc_by_char(documents, chunkSize, chunkOverlap):
+def split_doc_by_char(documents, chunkSize, chunkOverlap, endPage):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunkSize, chunk_overlap=chunkOverlap)
-    return text_splitter.split_documents(documents)
-
-def split_doc_by_page(documents, endPage):
-    lastPage = len(documents) - endPage
-    return documents[:-lastPage]
+    split_text = text_splitter.split_documents(documents)
+    text_splitter_no_last_page = [x for x in split_text if x.metadata['page'] < endPage]
+    return text_splitter_no_last_page
 
 def define_llm():
     return ChatOpenAI(
@@ -91,16 +90,18 @@ def main(pdf_file):
     docs = load_pdf(pdf_file)
     
     # Apply the stuff summarization
-    final_summary = stuff_summarization(docs)
+    #final_summary = stuff_summarization(docs)
 
     # Apply the map/reduce summarization
-    #final_summary = map_reduce_summarization(docs)
+    final_summary = map_reduce_summarization(docs)
 
     end = time.time()
     print(f"Summarized in {(end-start):.2f} seconds")
 
     # Output the final summary
-    from textwrap import fill
+    with open("output.txt", "w", errors="ignore") as f:
+        f.write(fill(final_summary["output_text"]))    
+
     print("\n\n=== Final Summary ===")
     print(fill(final_summary["output_text"]))
 
